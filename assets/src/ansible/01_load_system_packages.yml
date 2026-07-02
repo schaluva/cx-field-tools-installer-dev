@@ -202,3 +202,13 @@
       ansible.builtin.shell: |
         systemctl stop ecs  || true
         docker rm ecs-agent || true
+
+    - name: Fix docker socket group permissions
+      # SSH ControlMaster sessions (used in CI) inherit group membership from the
+      # master connection, which is established before ec2-user is added to the
+      # docker group. Explicitly setting the socket group ensures subsequent Ansible
+      # sessions can reach the Docker daemon regardless of session group cache.
+      ansible.builtin.file:
+        path: /var/run/docker.sock
+        group: docker
+        mode: "0660"
