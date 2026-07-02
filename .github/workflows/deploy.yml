@@ -74,6 +74,13 @@ jobs:
         with:
           terraform_version: "~1.5"
 
+      - name: Upgrade AWS CLI
+        run: |
+          curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
+          unzip -q awscliv2.zip
+          sudo ./aws/install --update
+          aws --version
+
       - name: Configure SSH include
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
