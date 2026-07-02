@@ -88,8 +88,9 @@ jobs:
           curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
           unzip -q awscliv2.zip
           sudo ./aws/install --update
-          echo "/usr/local/aws-cli/v2/current/bin" >> $GITHUB_PATH
+          sudo ln -sf /usr/local/aws-cli/v2/current/bin/aws /usr/bin/aws
           aws --version
+          which aws
 
       - name: Configure SSH include
         run: |
