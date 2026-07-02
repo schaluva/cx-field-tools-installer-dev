@@ -45,8 +45,8 @@ jobs:
       - name: Terraform init
         run: terraform init
 
-      - name: Validate tfvars
-        run: make verify
+      - name: Terraform validate
+        run: terraform validate
 
       - name: Terraform plan
         run: terraform plan -no-color
