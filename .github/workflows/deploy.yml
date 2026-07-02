@@ -93,7 +93,9 @@ jobs:
       - name: Configure SSH include
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          echo "Include $GITHUB_WORKSPACE/ssh_config" > ~/.ssh/config
+          # ControlMaster reuses the EICE tunnel established by ssh_connectivity_check
+          # so that subsequent ssh/scp calls don't need to open new WebSocket tunnels
+          printf 'ControlMaster auto\nControlPath /tmp/ssh-ctrl-%%r@%%h:%%p\nControlPersist 10m\n\nInclude %s/ssh_config\n' "$GITHUB_WORKSPACE" > ~/.ssh/config
           chmod 600 ~/.ssh/config
 
       - name: Extract hcl2json
@@ -143,7 +145,7 @@ jobs:
       - name: Configure SSH include
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          echo "Include $GITHUB_WORKSPACE/ssh_config" > ~/.ssh/config
+          printf 'ControlMaster auto\nControlPath /tmp/ssh-ctrl-%%r@%%h:%%p\nControlPersist 10m\n\nInclude %s/ssh_config\n' "$GITHUB_WORKSPACE" > ~/.ssh/config
           chmod 600 ~/.ssh/config
 
       - name: Extract hcl2json
