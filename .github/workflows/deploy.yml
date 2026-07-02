@@ -5,7 +5,16 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
-  workflow_dispatch:       # manual trigger for hotfix redeploys
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: false
+        default: 'apply'
+        type: choice
+        options:
+          - apply
+          - destroy
 
 permissions:
   id-token: write          # required for OIDC token exchange
@@ -56,7 +65,7 @@ jobs:
     name: Deploy
     runs-on: ubuntu-latest
     environment: sc-ga-dev     # triggers manual approval gate
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.action != 'destroy')
     steps:
       - uses: actions/checkout@v4
 
@@ -96,3 +105,49 @@ jobs:
 
       - name: Terraform apply
         run: terraform apply -auto-approve
+
+  # Triggered manually via workflow_dispatch with action=destroy
+  destroy:
+    name: Destroy
+    runs-on: ubuntu-latest
+    environment: sc-ga-dev     # same approval gate as deploy
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write terraform.tfvars
+        env:
+          TF_VARS: ${{ secrets.TF_VARS }}
+        run: echo "$TF_VARS" > terraform.tfvars
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.5"
+
+      - name: Upgrade AWS CLI
+        run: |
+          curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
+          unzip -q awscliv2.zip
+          sudo ./aws/install --update
+          echo "/usr/local/aws-cli/v2/current/bin" >> $GITHUB_PATH
+          aws --version
+
+      - name: Configure SSH include
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          echo "Include $GITHUB_WORKSPACE/ssh_config" > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+      - name: Extract hcl2json
+        run: make extract_hcl2json
+
+      - name: Terraform init
+        run: terraform init
+
+      - name: Terraform destroy
+        run: terraform destroy -auto-approve
