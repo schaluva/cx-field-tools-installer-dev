@@ -11,19 +11,20 @@ terraform {
     }
   }
 
-  backend "local" {
-    path = "DONTDELETE/terraform.tfstate"
-  }
-
-  # Uncomment to use S3 as backend. Consider use of DynamoDB as concurrency lock.
-  # https://developer.hashicorp.com/terraform/language/settings/backends/configuration
-  # backend "s3" {
-  #   region                          = "us-east-1"  # No vars allowed
-  #   bucket                          = "nf-nvirginia"
-  #   key                             = "graham/terraform/terraform.tfstate"
-  #   profile                         = "sts"
-  #   shared_credentials_file         = "$HOME/.aws/credentials"
+  # backend "local" {
+  #   path = "DONTDELETE/terraform.tfstate"
   # }
+
+  # S3 backend for CI/CD deployments via GitHub Actions.
+  # No profile= here — credentials come from OIDC env vars in CI.
+  # https://developer.hashicorp.com/terraform/language/settings/backends/configuration
+  backend "s3" {
+    region         = "us-east-1"
+    bucket         = "sc-ga-dev-tf-state"
+    key            = "seqera-platform/terraform.tfstate"
+    dynamodb_table = "sc-ga-dev-tf-lock"
+    encrypt        = true
+  }
 }
 
 
