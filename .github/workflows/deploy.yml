@@ -26,7 +26,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Write terraform.tfvars
-        run: echo "${{ secrets.TF_VARS }}" > terraform.tfvars
+        env:
+          TF_VARS: ${{ secrets.TF_VARS }}
+        run: echo "$TF_VARS" > terraform.tfvars
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -59,7 +61,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Write terraform.tfvars
-        run: echo "${{ secrets.TF_VARS }}" > terraform.tfvars
+        env:
+          TF_VARS: ${{ secrets.TF_VARS }}
+        run: echo "$TF_VARS" > terraform.tfvars
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
