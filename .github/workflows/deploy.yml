@@ -5,6 +5,14 @@ on:
     branches: [master]
   workflow_dispatch:
     inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
       action:
         description: 'Action to perform'
         required: false
@@ -15,31 +23,30 @@ on:
           - destroy
 
 permissions:
-  id-token: write          # required for OIDC token exchange
+  id-token: write
   contents: read
 
 env:
-  TF_VAR_aws_profile: ""  # override tfvars: empty = use OIDC env vars
+  TF_VAR_aws_profile: ""
   AWS_REGION: us-east-1
 
 jobs:
 
-  # Runs on every PR — validates config and shows plan
   validate:
     name: Validate
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
       - name: Write terraform.tfvars
         env:
-          TF_VARS: ${{ secrets.TF_VARS }}
+          TF_VARS: ${{ secrets.TF_VARS_DEV }}
         run: echo "$TF_VARS" > terraform.tfvars
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN_DEV }}
           aws-region: us-east-1
 
       - uses: hashicorp/setup-terraform@v3
@@ -58,23 +65,28 @@ jobs:
       - name: Terraform plan
         run: terraform plan -no-color
 
-  # Runs on merge to main — requires manual approval
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    environment: sc-ga-dev     # triggers manual approval gate
+    environment: ${{ inputs.environment }}
     if: github.event_name == 'workflow_dispatch' && inputs.action != 'destroy'
     steps:
       - uses: actions/checkout@v4
 
       - name: Write terraform.tfvars
         env:
-          TF_VARS: ${{ secrets.TF_VARS }}
-        run: echo "$TF_VARS" > terraform.tfvars
+          TF_VARS_DEV: ${{ secrets.TF_VARS_DEV }}
+          TF_VARS_PROD: ${{ secrets.TF_VARS_PROD }}
+        run: |
+          if [ "${{ inputs.environment }}" = "prod" ]; then
+            echo "$TF_VARS_PROD" > terraform.tfvars
+          else
+            echo "$TF_VARS_DEV" > terraform.tfvars
+          fi
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ inputs.environment == 'prod' && vars.AWS_DEPLOY_ROLE_ARN_PROD || vars.AWS_DEPLOY_ROLE_ARN_DEV }}
           aws-region: us-east-1
 
       - uses: hashicorp/setup-terraform@v3
@@ -88,13 +100,10 @@ jobs:
           sudo ./aws/install --update
           sudo ln -sf /usr/local/aws-cli/v2/current/bin/aws /usr/bin/aws
           aws --version
-          which aws
 
-      - name: Configure SSH include
+      - name: Configure SSH
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          # ControlMaster reuses the EICE tunnel established by ssh_connectivity_check
-          # so that subsequent ssh/scp calls don't need to open new WebSocket tunnels
           printf 'ControlMaster auto\nControlPath /tmp/ssh-ctrl-%%r@%%h:%%p\nControlPersist 10m\n\nInclude %s/ssh_config\n' "$GITHUB_WORKSPACE" > ~/.ssh/config
           chmod 600 ~/.ssh/config
 
@@ -110,23 +119,28 @@ jobs:
           echo "AWS CLI: $(which aws) — $(aws --version)"
           terraform apply -auto-approve
 
-  # Triggered manually via workflow_dispatch with action=destroy
   destroy:
     name: Destroy
     runs-on: ubuntu-latest
-    environment: sc-ga-dev     # same approval gate as deploy
+    environment: ${{ inputs.environment }}
     if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
     steps:
       - uses: actions/checkout@v4
 
       - name: Write terraform.tfvars
         env:
-          TF_VARS: ${{ secrets.TF_VARS }}
-        run: echo "$TF_VARS" > terraform.tfvars
+          TF_VARS_DEV: ${{ secrets.TF_VARS_DEV }}
+          TF_VARS_PROD: ${{ secrets.TF_VARS_PROD }}
+        run: |
+          if [ "${{ inputs.environment }}" = "prod" ]; then
+            echo "$TF_VARS_PROD" > terraform.tfvars
+          else
+            echo "$TF_VARS_DEV" > terraform.tfvars
+          fi
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ inputs.environment == 'prod' && vars.AWS_DEPLOY_ROLE_ARN_PROD || vars.AWS_DEPLOY_ROLE_ARN_DEV }}
           aws-region: us-east-1
 
       - uses: hashicorp/setup-terraform@v3
@@ -140,9 +154,8 @@ jobs:
           sudo ./aws/install --update
           sudo ln -sf /usr/local/aws-cli/v2/current/bin/aws /usr/bin/aws
           aws --version
-          which aws
 
-      - name: Configure SSH include
+      - name: Configure SSH
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf 'ControlMaster auto\nControlPath /tmp/ssh-ctrl-%%r@%%h:%%p\nControlPersist 10m\n\nInclude %s/ssh_config\n' "$GITHUB_WORKSPACE" > ~/.ssh/config
