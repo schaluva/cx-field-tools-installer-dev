@@ -8,11 +8,11 @@ on:
       environment:
         description: 'Target environment'
         required: true
-        default: 'dev'
+        default: 'sc-ga-dev'
         type: choice
         options:
-          - dev
-          - prod
+          - sc-ga-dev
+          - sc-ga-prod
       action:
         description: 'Action to perform'
         required: false
@@ -78,7 +78,7 @@ jobs:
           TF_VARS_DEV: ${{ secrets.TF_VARS_DEV }}
           TF_VARS_PROD: ${{ secrets.TF_VARS_PROD }}
         run: |
-          if [ "${{ inputs.environment }}" = "prod" ]; then
+          if [ "${{ inputs.environment }}" = "sc-ga-prod" ]; then
             echo "$TF_VARS_PROD" > terraform.tfvars
           else
             echo "$TF_VARS_DEV" > terraform.tfvars
@@ -86,7 +86,7 @@ jobs:
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ inputs.environment == 'prod' && vars.AWS_DEPLOY_ROLE_ARN_PROD || vars.AWS_DEPLOY_ROLE_ARN_DEV }}
+          role-to-assume: ${{ inputs.environment == 'sc-ga-prod' && vars.AWS_DEPLOY_ROLE_ARN_PROD || vars.AWS_DEPLOY_ROLE_ARN_DEV }}
           aws-region: us-east-1
 
       - uses: hashicorp/setup-terraform@v3
@@ -132,7 +132,7 @@ jobs:
           TF_VARS_DEV: ${{ secrets.TF_VARS_DEV }}
           TF_VARS_PROD: ${{ secrets.TF_VARS_PROD }}
         run: |
-          if [ "${{ inputs.environment }}" = "prod" ]; then
+          if [ "${{ inputs.environment }}" = "sc-ga-prod" ]; then
             echo "$TF_VARS_PROD" > terraform.tfvars
           else
             echo "$TF_VARS_DEV" > terraform.tfvars
@@ -140,7 +140,7 @@ jobs:
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ inputs.environment == 'prod' && vars.AWS_DEPLOY_ROLE_ARN_PROD || vars.AWS_DEPLOY_ROLE_ARN_DEV }}
+          role-to-assume: ${{ inputs.environment == 'sc-ga-prod' && vars.AWS_DEPLOY_ROLE_ARN_PROD || vars.AWS_DEPLOY_ROLE_ARN_DEV }}
           aws-region: us-east-1
 
       - uses: hashicorp/setup-terraform@v3
